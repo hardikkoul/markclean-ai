@@ -1,7 +1,7 @@
 {
   "name": "markclean-ai",
-  "version": "1.4.0",
-  "description": "Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep citation URLs.",
+  "version": "1.5.0",
+  "description": "Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep-linked citation URLs.",
   "keywords": [
     "llm",
     "rag",
@@ -13,8 +13,8 @@
     "langchain",
     "llamaindex",
     "mcp",
-    "cloudflare-workers",
-    "typescript"
+    "typescript",
+    "nodejs"
   ],
   "homepage": "https://github.com/hardikkoul/markclean-ai",
   "repository": {
@@ -48,10 +48,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/verify_all.mjs",
-    "dev": "npx wrangler dev",
-    "deploy": "npx wrangler deploy",
-    "smoke": "node scripts/smoke-test-live.mjs"
+    "test": "node test/verify_all.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

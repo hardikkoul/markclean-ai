@@ -1,6 +1,5 @@
 node_modules/
-.wrangler/
 .DS_Store
 *.log
 .env
-.dev.vars
+coverage/

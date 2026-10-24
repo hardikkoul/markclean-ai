@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   MarkCleanError,
   validatePublicUrl,
+  resolveUrl,
   extractFromHtml,
   chunkMarkdown
 } from '../dist/index.mjs';
@@ -15,7 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const cjsPkg = require('../dist/index.cjs');
 
-console.log('=== Running MarkClean AI v1.3.0 Enterprise Verification Suite ===\n');
+console.log('=== Running markclean-ai v1.5.0 Standalone NPM Verification & Security Suite ===\n');
 
 const SAMPLE_HTML = `<!DOCTYPE html>
 <html>
@@ -62,10 +63,34 @@ assert.equal(result.markdown.includes('Accept all cookies now'), false);
 assert.equal(result.markdown.includes('[the docs](https://example.com/docs)'), true);
 console.log('✅ 1. Core Extraction, GFM Tables & Noise Stripping passed!');
 
-// 2. Structured Error Handling in Core Library (`MarkCleanError`)
+// 2. Security Audit: SSRF (IPv4, IPv6, CGNAT, Integer IPs, Credentials) & XSS URI Schemes
+assert.equal(validatePublicUrl('ftp://example.com/file').code, 'UNSUPPORTED_PROTOCOL');
+assert.equal(validatePublicUrl('http://user:pass@example.com/').code, 'RESTRICTED_URL_CREDENTIALS');
+assert.equal(validatePublicUrl('http://127.0.0.1:8080/internal').code, 'RESTRICTED_HOST');
+assert.equal(validatePublicUrl('http://169.254.169.254/latest/meta-data').code, 'RESTRICTED_HOST');
+assert.equal(validatePublicUrl('http://100.64.0.1/cgnat').code, 'RESTRICTED_HOST');
+assert.equal(validatePublicUrl('http://[::1]:3000/').code, 'RESTRICTED_HOST');
+assert.equal(validatePublicUrl('http://[fd00::1]/').code, 'RESTRICTED_HOST');
+assert.equal(validatePublicUrl('http://[fe80::1]/').code, 'RESTRICTED_HOST');
+assert.equal(validatePublicUrl('http://2130706433/').code, 'RESTRICTED_HOST'); // decimal 127.0.0.1
+assert.equal(validatePublicUrl('not-a-url').code, 'INVALID_URL_FORMAT');
+
+// Dangerous XSS URI schemes must be stripped in resolveUrl & htmlToMarkdown
+assert.equal(resolveUrl('javascript:alert(1)', 'https://example.com'), '');
+assert.equal(resolveUrl('JAVASCRIPT:alert(1)', 'https://example.com'), '');
+assert.equal(resolveUrl('vbscript:msgbox(1)', 'https://example.com'), '');
+assert.equal(resolveUrl('data:text/html,<script>alert(1)</script>', 'https://example.com'), '');
+assert.equal(resolveUrl('file:///etc/passwd', 'https://example.com'), '');
+console.log('✅ 2. Security Audit (IPv4/IPv6/CGNAT/Decimal SSRF & XSS Scheme Guards) passed!');
+
+// 3. Structured MarkCleanError Validation
 assert.throws(
   () => extractFromHtml('   '),
   (err) => err instanceof MarkCleanError && err.code === 'EMPTY_HTML_INPUT' && err.status === 400
+);
+assert.throws(
+  () => extractFromHtml('<h1>Too big</h1>', { maxInputChars: 5 }),
+  (err) => err instanceof MarkCleanError && err.code === 'INPUT_TOO_LARGE' && err.status === 413
 );
 assert.throws(
   () => extractFromHtml(SAMPLE_HTML, { chunkSizeTokens: 5 }),
@@ -75,12 +100,9 @@ assert.throws(
   () => chunkMarkdown('# Heading\nBody', { maxTokens: 100, overlapTokens: 120 }),
   (err) => err instanceof MarkCleanError && err.code === 'INVALID_OVERLAP_TOKENS' && err.status === 400
 );
-assert.equal(validatePublicUrl('ftp://example.com/file').code, 'UNSUPPORTED_PROTOCOL');
-assert.equal(validatePublicUrl('http://127.0.0.1:8080/internal').code, 'RESTRICTED_HOST');
-assert.equal(validatePublicUrl('not-a-url').code, 'INVALID_URL_FORMAT');
-console.log('✅ 2. Structured MarkCleanError Validation & SSRF Guards passed!');
+console.log('✅ 3. Structured MarkCleanError Validation & Size Limits passed!');
 
-// 3. Table-Header Preservation & Citation URLs in RAG Chunks
+// 4. Table-Header Preservation & Citation URLs in RAG Chunks
 const multiRowTableHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -119,7 +141,7 @@ for (const c of ragRes.chunks) {
 }
 console.log('✅ 4. Table-Header Preservation & Citation URL Traceability passed!');
 
-// 5. CommonJS & CLI Verification
+// 5. CommonJS & CLI Verification (v1.5.0)
 const cjsRes = cjsPkg.extractFromHtml(SAMPLE_HTML);
 assert.equal(cjsRes.success, true);
 assert.ok(cjsPkg.MarkCleanError);
@@ -127,6 +149,6 @@ assert.ok(cjsPkg.MarkCleanError);
 const cliOut = execFileSync('node', [path.join(__dirname, '../bin/markclean.mjs'), '--version'], {
   encoding: 'utf8'
 }).trim();
-assert.equal(cliOut, '1.3.0');
-console.log('✅ 5. Dual ESM/CommonJS Exports & CLI Binary (v1.3.0) passed!\n');
-console.log('ALL v1.3.0 ENTERPRISE TESTS PASSED SUCCESSFULLY!');
+assert.equal(cliOut, '1.5.0');
+console.log('✅ 5. Dual ESM/CommonJS Exports & CLI Binary (v1.5.0) passed!\n');
+console.log('ALL markclean-ai v1.5.0 TESTS PASSED SUCCESSFULLY!');

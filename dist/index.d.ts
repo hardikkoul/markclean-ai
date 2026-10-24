@@ -53,11 +53,13 @@ export interface MarkCleanOptions {
   focusMainContent?: boolean;
   chunkSizeTokens?: number;
   includeFrontmatter?: boolean;
+  maxInputChars?: number;
 }
 
 export interface MarkCleanUrlOptions extends MarkCleanOptions {
   timeoutMs?: number;
   maxBytes?: number;
+  maxRedirects?: number;
   headers?: Record<string, string>;
 }
 

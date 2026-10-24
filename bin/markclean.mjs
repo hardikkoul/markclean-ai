@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * markclean-ai CLI (`npx markclean-ai <url-or-file> [options]`)
+ * markclean-ai v1.5.0 CLI (`npx markclean-ai <url-or-file> [options]`)
  */
 
 import fs from 'node:fs';
@@ -9,7 +9,7 @@ import { extractFromHtml, extractFromUrl, MarkCleanError } from '../dist/index.m
 const args = process.argv.slice(2);
 if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
   console.log(`
-markclean-ai v1.3.0 — Web-to-LLM Markdown, Table & RAG Chunker CLI
+markclean-ai v1.5.0 — Web-to-LLM Markdown, Table & RAG Chunker CLI
 
 Usage:
   npx markclean-ai <https://url-or-local-file.html> [options]
@@ -27,7 +27,7 @@ Options:
 }
 
 if (args.includes('--version') || args.includes('-v')) {
-  console.log('1.3.0');
+  console.log('1.5.0');
   process.exit(0);
 }
 
@@ -69,7 +69,7 @@ try {
   if (/^https?:\/\//i.test(target)) {
     result = await extractFromUrl(target, { includeLinks, chunkSizeTokens });
   } else {
-    if (!fs.existsSync(target)) {
+    if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
       throw new MarkCleanError(
         'FILE_NOT_FOUND',
         `Local HTML file not found at path "${target}". Verify the file path or pass a full http(s):// URL.`,

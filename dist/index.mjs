@@ -1,10 +1,10 @@
 /**
- * markclean-ai v1.3.0
+ * markclean-ai v1.5.0
  * Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser,
  * and Table-Header-Preserving RAG Chunker with deep-linked citation URLs.
  *
  * License: MIT
- * Repository: https://github.com/hardikkoul/markclean-ai
+ * Author: Hardik Koul (https://github.com/hardikkoul/markclean-ai)
  */
 
 const ENTITIES = {
@@ -24,14 +24,16 @@ const ENTITIES = {
   '&bull;': '•'
 };
 
+const DEFAULT_MAX_INPUT_CHARS = 5 * 1024 * 1024; // 5 MB ReDoS & memory guard
+
 /**
  * Structured error class for deterministic error handling in enterprise pipelines.
  */
 export class MarkCleanError extends Error {
   /**
-   * @param {string} code - Machine-readable error code (e.g. 'INVALID_HTML_INPUT', 'INVALID_URL', 'UPSTREAM_TIMEOUT')
+   * @param {string} code - Machine-readable error code
    * @param {string} message - Clear, actionable developer message
-   * @param {number} [status=400] - Recommended HTTP status code
+   * @param {number} [status=400] - Recommended HTTP status equivalent
    * @param {Record<string, unknown>} [details={}] - Additional diagnostic context
    */
   constructor(code, message, status = 400, details = {}) {
@@ -44,14 +46,20 @@ export class MarkCleanError extends Error {
 }
 
 /**
- * Decodes HTML entities into standard UTF-8 characters.
+ * Decodes HTML entities into safe UTF-8 characters (filtering out null bytes and control characters).
  */
 export function decodeEntities(str = '') {
   if (typeof str !== 'string' || !str) return '';
   return str
     .replace(/&(amp|lt|gt|quot|#39|apos|nbsp|ndash|mdash|copy|reg|trade|hellip|bull);/gi, (m) => ENTITIES[m.toLowerCase()] || m)
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    .replace(/&#(\d+);/g, (_, dec) => {
+      const code = parseInt(dec, 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+      const code = parseInt(hex, 16);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    });
 }
 
 /**
@@ -67,7 +75,8 @@ export function estimateTokens(text = '') {
 }
 
 /**
- * Validates that a URL is a well-formed public HTTP/HTTPS address and blocks private/loopback SSRF targets.
+ * Validates that a URL is a well-formed public HTTP/HTTPS address and blocks private,
+ * loopback, link-local, CGNAT, IPv6 ULA, and cloud metadata SSRF targets.
  */
 export function validatePublicUrl(rawUrl) {
   if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
@@ -97,25 +106,71 @@ export function validatePublicUrl(rawUrl) {
     };
   }
 
-  const host = parsed.hostname.toLowerCase();
+  // Reject embedded credentials in URLs (e.g. http://user:pass@internal/)
+  if (parsed.username || parsed.password) {
+    return {
+      valid: false,
+      code: 'RESTRICTED_URL_CREDENTIALS',
+      reason: 'URLs containing embedded username or password credentials are not allowed.'
+    };
+  }
+
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  // Block localhost, internal TLDs, and integer/hex-encoded IP tricks
   if (
     host === 'localhost' ||
     host === '0.0.0.0' ||
     host === '127.0.0.1' ||
     host === '::1' ||
-    host === '[::1]' ||
+    host === '::' ||
+    host === '0:0:0:0:0:0:0:1' ||
+    host === '0:0:0:0:0:0:0:0' ||
+    host.endsWith('.localhost') ||
     host.endsWith('.local') ||
     host.endsWith('.internal') ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
+    host.endsWith('.arpa') ||
+    /^\d+$/.test(host) ||
+    /^0x[0-9a-f]+$/i.test(host)
   ) {
     return {
       valid: false,
       code: 'RESTRICTED_HOST',
-      reason: `Hostname "${host}" resolves to a restricted loopback, private network, or metadata address.`
+      reason: `Hostname "${parsed.hostname}" resolves to a restricted loopback or internal address.`
+    };
+  }
+
+  // Block IPv6 loopback, unspecified, IPv4-mapped (::ffff:), Unique Local (fc00::/7), and Link-Local (fe80::/10)
+  if (
+    host.includes(':') &&
+    (host.startsWith('fe80:') ||
+      host.startsWith('fc') ||
+      host.startsWith('fd') ||
+      host.startsWith('::ffff:') ||
+      host.startsWith('0:0:0:0:0:ffff:'))
+  ) {
+    return {
+      valid: false,
+      code: 'RESTRICTED_HOST',
+      reason: `IPv6 address "${parsed.hostname}" is in a restricted private, link-local, or IPv4-mapped range.`
+    };
+  }
+
+  // Block IPv4 private/reserved ranges: 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10 (CGNAT),
+  // 127.0.0.0/8, 169.254.0.0/16 (cloud metadata), 172.16.0.0/12, 192.168.0.0/16
+  if (
+    /^0\./.test(host) ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+    /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./.test(host)
+  ) {
+    return {
+      valid: false,
+      code: 'RESTRICTED_HOST',
+      reason: `IPv4 address "${parsed.hostname}" resolves to a restricted internal, CGNAT, or cloud metadata network.`
     };
   }
 
@@ -323,16 +378,23 @@ export function cleanHtml(html = '', options = {}) {
 }
 
 /**
- * Resolves relative links against a base URL safely.
+ * Resolves relative links against a base URL safely and neutralizes dangerous URI schemes
+ * (`javascript:`, `vbscript:`, `data:`, `file:`).
  */
 export function resolveUrl(href = '', baseUrl = '') {
   if (typeof href !== 'string' || !href) return '';
-  const trimmed = href.trim();
-  if (/^(javascript:|mailto:|tel:|data:|#)/i.test(trimmed)) return trimmed;
+  const trimmed = decodeEntities(href).replace(/[\x00-\x20]+/g, '').trim();
+  if (!trimmed) return '';
+  if (/^(javascript|vbscript|data|file):/i.test(trimmed)) return '';
+  if (/^(mailto:|tel:|#)/i.test(trimmed)) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (!baseUrl) return trimmed;
   try {
-    return new URL(trimmed, baseUrl).href;
+    const resolved = new URL(trimmed, baseUrl);
+    if (!['http:', 'https:', 'mailto:', 'tel:'].includes(resolved.protocol)) {
+      return '';
+    }
+    return resolved.href;
   } catch (_) {
     return trimmed;
   }
@@ -401,23 +463,25 @@ export function htmlToMarkdown(html = '', options = {}) {
       const altMatch = imgTag.match(/alt\s*=\s*["']([^"']*)["']/i);
       if (!srcMatch) return '';
       const src = resolveUrl(srcMatch[1], baseUrl);
-      if (src.startsWith('data:')) return '';
-      const alt = altMatch ? decodeEntities(altMatch[1].trim()) : 'image';
-      return `![${alt}](${src})`;
+      if (!src) return '';
+      const alt = altMatch ? decodeEntities(altMatch[1].trim()).replace(/[\[\]]/g, '') : 'image';
+      const safeSrc = src.replace(/\)/g, '%29');
+      return `![${alt}](${safeSrc})`;
     });
   } else {
     work = work.replace(/<img[^>]+>/gi, '');
   }
 
   work = work.replace(/<a\s+([^>]+)>([\s\S]*?)<\/a>/gi, (_, attrs, inner) => {
-    const text = stripTags(inner);
+    const text = stripTags(inner).replace(/[\[\]]/g, '');
     if (!text) return '';
     if (!includeLinks) return text;
     const hrefMatch = attrs.match(/href\s*=\s*["']([^"']+)["']/i);
     if (!hrefMatch) return text;
     const url = resolveUrl(hrefMatch[1], baseUrl);
-    if (!url || url.startsWith('javascript:') || url.startsWith('#')) return text;
-    return `[${text}](${url})`;
+    if (!url || url.startsWith('#')) return text;
+    const safeUrl = url.replace(/\)/g, '%29');
+    return `[${text}](${safeUrl})`;
   });
 
   work = work.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, listInner) => {
@@ -653,8 +717,17 @@ export function extractFromHtml(html = '', options = {}) {
     includeImages = false,
     focusMainContent = true,
     chunkSizeTokens = 500,
-    includeFrontmatter = true
+    includeFrontmatter = true,
+    maxInputChars = DEFAULT_MAX_INPUT_CHARS
   } = options;
+
+  if (html.length > maxInputChars) {
+    throw new MarkCleanError(
+      'INPUT_TOO_LARGE',
+      `Input HTML size (${html.length} chars) exceeds maximum allowed limit (${maxInputChars} chars).`,
+      413
+    );
+  }
 
   const numChunkSize = Number(chunkSizeTokens);
   if (!Number.isFinite(numChunkSize) || numChunkSize < 20) {
@@ -725,78 +798,115 @@ export function extractFromHtml(html = '', options = {}) {
 }
 
 /**
- * Fetches a public HTTP/HTTPS URL with timeout, content-type validation, and SSRF protection,
- * then executes `extractFromHtml`.
+ * Fetches a public HTTP/HTTPS URL with timeout, content-type validation, and
+ * redirect-hop SSRF validation, then executes `extractFromHtml`.
  */
 export async function extractFromUrl(url, options = {}) {
-  const { timeoutMs = 8000, maxBytes = 5 * 1024 * 1024, headers = {}, ...extractOptions } = options;
+  const {
+    timeoutMs = 8000,
+    maxBytes = DEFAULT_MAX_INPUT_CHARS,
+    maxRedirects = 5,
+    headers = {},
+    ...extractOptions
+  } = options;
 
-  const check = validatePublicUrl(url);
-  if (!check.valid) {
-    throw new MarkCleanError(check.code, check.reason, 400, { url });
-  }
+  let currentUrl = url;
+  let redirectCount = 0;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let html;
   try {
-    const res = await fetch(check.url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MarkCleanAI/1.3; +https://github.com/hardikkoul/markclean-ai)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        ...headers
-      },
-      redirect: 'follow'
-    });
+    while (true) {
+      const check = validatePublicUrl(currentUrl);
+      if (!check.valid) {
+        throw new MarkCleanError(check.code, check.reason, 400, { url: currentUrl });
+      }
+      currentUrl = check.url;
 
-    if (!res.ok) {
-      throw new MarkCleanError(
-        'UPSTREAM_HTTP_ERROR',
-        `Upstream server at "${check.url}" returned HTTP ${res.status} (${res.statusText || 'Error'}).`,
-        502,
-        { url: check.url, upstreamStatus: res.status }
-      );
-    }
+      const res = await fetch(currentUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; MarkCleanAI/1.5; +https://github.com/hardikkoul/markclean-ai)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          ...headers
+        },
+        // Manual redirect handling prevents SSRF via 302 redirect from a public URL to 127.0.0.1 / 169.254.169.254
+        redirect: 'manual'
+      });
 
-    const contentType = (res.headers.get('content-type') || '').toLowerCase();
-    if (
-      contentType &&
-      !contentType.includes('text/html') &&
-      !contentType.includes('application/xhtml+xml') &&
-      !contentType.includes('text/plain') &&
-      !contentType.includes('application/xml') &&
-      !contentType.includes('text/xml')
-    ) {
-      throw new MarkCleanError(
-        'UNSUPPORTED_CONTENT_TYPE',
-        `Upstream URL returned unsupported Content-Type "${contentType}". Expected HTML or text document.`,
-        415,
-        { url: check.url, contentType }
-      );
-    }
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) {
+          throw new MarkCleanError(
+            'UPSTREAM_HTTP_ERROR',
+            `Upstream server at "${currentUrl}" returned redirect HTTP ${res.status} without a Location header.`,
+            502,
+            { url: currentUrl, upstreamStatus: res.status }
+          );
+        }
+        redirectCount++;
+        if (redirectCount > maxRedirects) {
+          throw new MarkCleanError(
+            'TOO_MANY_REDIRECTS',
+            `Exceeded maximum redirect hops (${maxRedirects}) while fetching "${url}".`,
+            502,
+            { url, maxRedirects }
+          );
+        }
+        currentUrl = new URL(location, currentUrl).href;
+        continue;
+      }
 
-    html = await res.text();
-    if (html.length > maxBytes) {
-      html = html.slice(0, maxBytes);
+      if (!res.ok) {
+        throw new MarkCleanError(
+          'UPSTREAM_HTTP_ERROR',
+          `Upstream server at "${currentUrl}" returned HTTP ${res.status} (${res.statusText || 'Error'}).`,
+          502,
+          { url: currentUrl, upstreamStatus: res.status }
+        );
+      }
+
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      if (
+        contentType &&
+        !contentType.includes('text/html') &&
+        !contentType.includes('application/xhtml+xml') &&
+        !contentType.includes('text/plain') &&
+        !contentType.includes('application/xml') &&
+        !contentType.includes('text/xml')
+      ) {
+        throw new MarkCleanError(
+          'UNSUPPORTED_CONTENT_TYPE',
+          `Upstream URL returned unsupported Content-Type "${contentType}". Expected HTML or text document.`,
+          415,
+          { url: currentUrl, contentType }
+        );
+      }
+
+      html = await res.text();
+      if (html.length > maxBytes) {
+        html = html.slice(0, maxBytes);
+      }
+      break;
     }
   } catch (err) {
     if (err instanceof MarkCleanError) throw err;
     if (err && err.name === 'AbortError') {
       throw new MarkCleanError(
         'UPSTREAM_TIMEOUT',
-        `Fetching "${check.url}" timed out after ${timeoutMs}ms.`,
+        `Fetching "${currentUrl}" timed out after ${timeoutMs}ms.`,
         504,
-        { url: check.url, timeoutMs }
+        { url: currentUrl, timeoutMs }
       );
     }
     throw new MarkCleanError(
       'UPSTREAM_FETCH_FAILED',
-      `Failed to fetch "${check.url}": ${err instanceof Error ? err.message : String(err)}`,
+      `Failed to fetch "${currentUrl}": ${err instanceof Error ? err.message : String(err)}`,
       502,
-      { url: check.url }
+      { url: currentUrl }
     );
   } finally {
     clearTimeout(timer);
@@ -805,11 +915,11 @@ export async function extractFromUrl(url, options = {}) {
   if (!html || !html.trim()) {
     throw new MarkCleanError(
       'EMPTY_UPSTREAM_RESPONSE',
-      `Upstream URL "${check.url}" returned an empty response body.`,
+      `Upstream URL "${currentUrl}" returned an empty response body.`,
       502,
-      { url: check.url }
+      { url: currentUrl }
     );
   }
 
-  return extractFromHtml(html, { ...extractOptions, url: check.url });
+  return extractFromHtml(html, { ...extractOptions, url: currentUrl });
 }
