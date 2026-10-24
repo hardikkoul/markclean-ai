@@ -10,7 +10,6 @@ import {
   extractFromHtml,
   chunkMarkdown
 } from '../dist/index.mjs';
-import worker from '../worker/index.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -81,51 +80,7 @@ assert.equal(validatePublicUrl('http://127.0.0.1:8080/internal').code, 'RESTRICT
 assert.equal(validatePublicUrl('not-a-url').code, 'INVALID_URL_FORMAT');
 console.log('✅ 2. Structured MarkCleanError Validation & SSRF Guards passed!');
 
-// 3. Worker API Structured Error Responses (400, 401, 404, 405)
-const badJsonReq = new Request('https://api.markclean.ai/v1/extract', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: '{bad json'
-});
-const badJsonRes = await worker.fetch(badJsonReq, {});
-assert.equal(badJsonRes.status, 400);
-const badJsonBody = await badJsonRes.json();
-assert.equal(badJsonBody.error.code, 'MALFORMED_JSON_BODY');
-
-const missingInputReq = new Request('https://api.markclean.ai/v1/extract', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({})
-});
-const missingInputRes = await worker.fetch(missingInputReq, {});
-assert.equal(missingInputRes.status, 400);
-const missingInputBody = await missingInputRes.json();
-assert.equal(missingInputBody.error.code, 'MISSING_INPUT');
-
-const wrongMethodReq = new Request('https://api.markclean.ai/v1/chunk', { method: 'GET' });
-const wrongMethodRes = await worker.fetch(wrongMethodReq, {});
-assert.equal(wrongMethodRes.status, 405);
-const wrongMethodBody = await wrongMethodRes.json();
-assert.equal(wrongMethodBody.error.code, 'METHOD_NOT_ALLOWED');
-
-const notFoundReq = new Request('https://api.markclean.ai/v1/unknown', { method: 'GET' });
-const notFoundRes = await worker.fetch(notFoundReq, {});
-assert.equal(notFoundRes.status, 404);
-const notFoundBody = await notFoundRes.json();
-assert.equal(notFoundBody.error.code, 'ROUTE_NOT_FOUND');
-
-const unauthReq = new Request('https://api.markclean.ai/v1/extract', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ html: SAMPLE_HTML })
-});
-const unauthRes = await worker.fetch(unauthReq, { RAPIDAPI_PROXY_SECRET: 'secret-xyz' });
-assert.equal(unauthRes.status, 401);
-const unauthBody = await unauthRes.json();
-assert.equal(unauthBody.error.code, 'UNAUTHORIZED');
-console.log('✅ 3. Worker API Structured Error Responses (400, 401, 404, 405) passed!');
-
-// 4. Table-Header Preservation & Citation URLs in RAG Chunks
+// 3. Table-Header Preservation & Citation URLs in RAG Chunks
 const multiRowTableHtml = `<!DOCTYPE html>
 <html>
 <head>

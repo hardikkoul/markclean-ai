@@ -1,9 +1,0 @@
-name = "markclean-ai-api"
-main = "src/worker.mjs"
-compatibility_date = "2024-11-01"
-
-# Free tier covers 100,000 requests/day ($0.00 cost)
-# After listing on RapidAPI, lock down your Worker to RapidAPI traffic via:
-# npx wrangler secret put RAPIDAPI_PROXY_SECRET
-[vars]
-ENVIRONMENT = "production"
