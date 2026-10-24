@@ -1,6 +1,6 @@
 {
   "name": "markclean-ai",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "description": "Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep citation URLs.",
   "keywords": [
     "llm",
