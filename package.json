@@ -1,20 +1,59 @@
 {
-  "name": "markclean-ai-monorepo",
-  "version": "1.2.0",
-  "private": true,
-  "description": "Open-Core Monorepo: markclean-ai Open-Source NPM Package + Managed Cloudflare Worker Edge API",
+  "name": "markclean-ai",
+  "version": "1.3.0",
+  "description": "Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep citation URLs.",
+  "keywords": [
+    "llm",
+    "rag",
+    "markdown",
+    "html-to-markdown",
+    "table-extractor",
+    "chunker",
+    "ai-agents",
+    "langchain",
+    "llamaindex",
+    "mcp",
+    "cloudflare-workers",
+    "typescript"
+  ],
+  "homepage": "https://github.com/hardikkoul/markclean-ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hardikkoul/markclean-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hardikkoul/markclean-ai/issues"
+  },
+  "license": "MIT",
+  "author": "Hardik Koul <hardik.koul.1998@gmail.com> (https://github.com/hardikkoul)",
   "type": "module",
-  "workspaces": [
-    "packages/markclean-ai",
-    "apps/api"
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "markclean": "./bin/markclean.mjs",
+    "markclean-ai": "./bin/markclean.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "test": "node test/verify_all.mjs",
-    "publish:npm": "cd packages/markclean-ai && npm publish --access public",
-    "dev:api": "cd apps/api && npx wrangler dev",
-    "deploy:api": "cd apps/api && npx wrangler deploy",
-    "smoke:api": "node apps/api/scripts/smoke-test-live.mjs"
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "smoke": "node scripts/smoke-test-live.mjs"
   },
-  "author": "Hardik Koul <hardik.koul.1998@gmail.com>",
-  "license": "MIT"
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
