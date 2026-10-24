@@ -1,12 +1,8 @@
 # markclean-ai
 
-[npm version](https://www.google.com/search?q=https://www.npmjs.com/package/markclean-ai)
-[](https://opensource.org/licenses/MIT)
-[Zero Dependencies](https://www.google.com/search?q=https://www.npmjs.com/package/markclean-ai)
-[](https://nodejs.org)
-[](https://www.typescriptlang.org/)
+**Version:** `1.5.0` | **License:** MIT | **Dependencies:** `0` | **Runtime:** Node.js `>=18`, Bun, Deno & Edge | **TypeScript:** Built-in `.d.ts`
 
-**Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep-linked citation URLs (`v1.5.0`).**
+**Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep-linked citation URLs.**
 
 Built for **AI Agents, LangChain/LlamaIndex RAG pipelines, Node.js/Bun/Deno backends, and V8 Edge runtimes**—reducing LLM context token consumption by **65% to 90%** while guaranteeing zero orphaned table rows.
 
