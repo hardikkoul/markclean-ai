@@ -1,0 +1,10 @@
+{
+  "name": "@markclean/core",
+  "version": "1.1.0",
+  "description": "Zero-dependency HTML-to-LLM Markdown, Table & RAG Chunking Engine",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  }
+}

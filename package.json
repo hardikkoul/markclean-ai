@@ -1,0 +1,20 @@
+{
+  "name": "markclean-ai-monorepo",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Open-Core Monorepo: markclean-ai Open-Source NPM Package + Managed Cloudflare Worker Edge API",
+  "type": "module",
+  "workspaces": [
+    "packages/markclean-ai",
+    "apps/api"
+  ],
+  "scripts": {
+    "test": "node test/verify_all.mjs",
+    "publish:npm": "cd packages/markclean-ai && npm publish --access public",
+    "dev:api": "cd apps/api && npx wrangler dev",
+    "deploy:api": "cd apps/api && npx wrangler deploy",
+    "smoke:api": "node apps/api/scripts/smoke-test-live.mjs"
+  },
+  "author": "Hardik Koul <hardik.koul.1998@gmail.com>",
+  "license": "MIT"
+}

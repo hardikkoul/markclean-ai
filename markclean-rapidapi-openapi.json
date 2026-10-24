@@ -1,0 +1,200 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "MarkClean AI \u2014 Web-to-LLM Markdown, Table & RAG Chunking API",
+    "version": "1.2.0",
+    "description": "Convert any URL or raw HTML into clean, token-optimized GitHub-Flavored Markdown, structured JSON/CSV tables, OpenGraph/JSON-LD metadata, and semantic RAG chunks. Cuts LLM token costs by 65\u201390% for AI agents, LangChain/LlamaIndex pipelines, and n8n/Make automations."
+  },
+  "servers": [
+    {
+      "url": "https://markclean-ai-api.markclean.workers.dev",
+      "description": "Cloudflare Global Edge Network"
+    }
+  ],
+  "paths": {
+    "/v1/extract": {
+      "post": {
+        "operationId": "extractPost",
+        "summary": "Extract clean LLM Markdown, JSON tables & RAG chunks from URL or HTML",
+        "description": "Fetches a URL (or accepts raw HTML) and strips DOM clutter, ads, scripts, and cookie banners. Returns clean Markdown with YAML frontmatter, structured JSON/CSV tables, and semantic RAG chunks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "Public HTTP/HTTPS URL to fetch and extract",
+                    "example": "https://en.wikipedia.org/wiki/Large_language_model"
+                  },
+                  "html": {
+                    "type": "string",
+                    "description": "Optional raw HTML string to parse directly instead of fetching a URL"
+                  },
+                  "includeLinks": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Preserve hyperlinks in Markdown output"
+                  },
+                  "includeImages": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Preserve image references in Markdown output"
+                  },
+                  "focusMainContent": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically strip nav, footer, sidebar, and cookie banners"
+                  },
+                  "chunkSizeTokens": {
+                    "type": "integer",
+                    "default": 500,
+                    "description": "Target maximum token count per semantic RAG chunk"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Clean Markdown, metadata, extracted tables, RAG chunks, and token savings telemetry"
+          }
+        }
+      },
+      "get": {
+        "operationId": "extractGet",
+        "summary": "Extract clean LLM Markdown from a URL via GET query parameters",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "Target webpage URL (e.g., https://example.com)",
+            "schema": {
+              "type": "string",
+              "example": "https://example.com"
+            }
+          },
+          {
+            "name": "includeLinks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "focusMainContent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful extraction response"
+          }
+        }
+      }
+    },
+    "/v1/tables": {
+      "post": {
+        "operationId": "extractTablesPost",
+        "summary": "Extract all HTML tables from a URL or HTML as structured JSON, CSV & Markdown",
+        "description": "Dedicated endpoint for financial, pricing, and benchmark scraping. Extracts every HTML table on a page into clean JSON object arrays, RFC-4180 CSV strings, and GFM pipe tables.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "example": "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
+                  },
+                  "html": {
+                    "type": "string",
+                    "description": "Optional raw HTML containing <table> elements"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Array of extracted tables in JSON, CSV, and Markdown formats"
+          }
+        }
+      }
+    },
+    "/v1/chunk": {
+      "post": {
+        "operationId": "chunkMarkdownPost",
+        "summary": "Split Markdown or text into heading-aware, token-bounded RAG chunks",
+        "description": "Splits long Markdown documents along H1\u2013H3 semantic boundaries while respecting your maximum token window and token overlap for vector embeddings.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "markdown"
+                ],
+                "properties": {
+                  "markdown": {
+                    "type": "string",
+                    "example": "# Overview\nMarkClean AI converts HTML to clean Markdown.\n\n## Pricing\nStarts at $0/month on Cloudflare Workers."
+                  },
+                  "maxTokens": {
+                    "type": "integer",
+                    "default": 500
+                  },
+                  "overlapTokens": {
+                    "type": "integer",
+                    "default": 50
+                  },
+                  "sourceUrl": {
+                    "type": "string",
+                    "description": "Optional canonical source URL attached to every returned chunk for traceable citations",
+                    "example": "https://example.com/pricing"
+                  },
+                  "repeatTableHeaders": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically repeat Markdown table headers across split chunks so LLM agents never lose column context"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Array of semantic RAG chunks with token counts"
+          }
+        }
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "summary": "Health & version check endpoint for RapidAPI uptime monitoring",
+        "responses": {
+          "200": {
+            "description": "Service operational status"
+          }
+        }
+      }
+    }
+  }
+}

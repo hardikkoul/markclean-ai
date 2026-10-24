@@ -1,0 +1,50 @@
+{
+  "name": "markclean-ai",
+  "version": "1.2.0",
+  "description": "Zero-dependency HTML-to-LLM Markdown converter, HTML Table-to-JSON/CSV parser, and Table-Header-Preserving RAG Chunker with deep citation URLs.",
+  "keywords": [
+    "llm",
+    "rag",
+    "markdown",
+    "html-to-markdown",
+    "table-extractor",
+    "chunker",
+    "ai-agents",
+    "langchain",
+    "llamaindex",
+    "mcp",
+    "cloudflare-workers",
+    "typescript"
+  ],
+  "homepage": "https://github.com/hardikkoul/markclean-ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hardikkoul/markclean-ai.git"
+  },
+  "license": "MIT",
+  "author": "Hardik Koul <hardik.koul.1998@gmail.com> (https://github.com/hardikkoul)",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "markclean": "./bin/markclean.mjs",
+    "markclean-ai": "./bin/markclean.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
